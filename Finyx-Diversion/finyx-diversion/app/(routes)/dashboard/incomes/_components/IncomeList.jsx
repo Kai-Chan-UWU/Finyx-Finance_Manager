@@ -1,9 +1,9 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import CreateIncomes from "./CreateIncomes";
-import { db } from "@/utils/dbConfig";
-import { desc, eq, getTableColumns, sql } from "drizzle-orm";
-import { Incomes, Expenses } from "@/utils/schema";
+import { supabase } from "@/utils/dbConfig";
+// import { desc, eq, getTableColumns, sql } from "drizzle-orm";
+// import { Incomes, Expenses } from "@/utils/schema";
 import { useUser } from "@clerk/nextjs";
 import IncomeItem from "./IncomeItem";
 
@@ -15,20 +15,45 @@ function IncomeList() {
   }, [user]);
 
   const getIncomelist = async () => {
-    const result = await db
-      .select({
-        ...getTableColumns(Incomes),
-        totalSpend: sql`sum(${Expenses.amount})`.mapWith(Number),
-        totalItem: sql`count(${Expenses.id})`.mapWith(Number),
-      })
-      .from(Incomes)
-      .leftJoin(Expenses, eq(Incomes.id, Expenses.budgetId))
-      .where(eq(Incomes.createdBy, user?.primaryEmailAddress?.emailAddress))
-      .groupBy(Incomes.id)
-      .orderBy(desc(Incomes.id));
-    setIncomelist(result);
-  };
+    const email = user?.primaryEmailAddress?.emailAddress;
 
+    try {
+      // Fetch incomes
+      const { data: incomesData, error: incomesError } = await supabase
+        .from('Incomes')
+        .select('*')
+        .eq('createdBy', email)
+        .order('id', { ascending: false });
+
+      if (incomesError) throw incomesError;
+
+      // Fetch expenses for each income
+      const incomesWithTotals = await Promise.all(
+        incomesData.map(async (income) => {
+          const { data: expensesData, error: expensesError } = await supabase
+            .from('Expenses')
+            .select('amount, id')
+            .eq('budgetId', income.id);
+
+          if (expensesError) throw expensesError;
+
+          // Calculate totals
+          const totalSpend = expensesData.reduce((sum, expense) => sum + expense.amount, 0);
+          const totalItem = expensesData.length;
+
+          return {
+            ...income,
+            totalSpend,
+            totalItem,
+          };
+        })
+      );
+
+      setIncomelist(incomesWithTotals);
+    } catch (error) {
+      console.error('Error fetching income list:', error);
+    }
+  };
   return (
     <div className="mt-7">
       <div

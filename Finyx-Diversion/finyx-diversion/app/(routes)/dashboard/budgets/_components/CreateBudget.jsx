@@ -13,8 +13,8 @@ import {
 import EmojiPicker from "emoji-picker-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { db } from "@/utils/dbConfig";
-import { Budgets } from "@/utils/schema";
+import { supabase } from "@/utils/dbConfig";
+// import { Budgets } from "@/utils/schema";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 
@@ -31,21 +31,27 @@ function CreateBudget({ refreshData }) {
    * Used to Create New Budget
    */
   const onCreateBudget = async () => {
-    const result = await db
-      .insert(Budgets)
-      .values({
+    const { data, error } = await supabase
+      .from('Budgets')
+      .insert({
         name: name,
         amount: amount,
         createdBy: user?.primaryEmailAddress?.emailAddress,
         icon: emojiIcon,
       })
-      .returning({ insertedId: Budgets.id });
+      .select('id') // This is equivalent to .returning() in Drizzle
 
-    if (result) {
+    if (error) {
+      toast.error("Failed to create budget"); // Handle error
+      return;
+    }
+
+    if (data) {
       refreshData();
       toast("New Budget Created!");
     }
   };
+
   return (
     <div>
       <Dialog>

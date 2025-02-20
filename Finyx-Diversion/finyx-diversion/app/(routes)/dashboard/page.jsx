@@ -2,9 +2,9 @@
 import React, { useEffect, useState } from "react";
 import { UserButton, useUser } from "@clerk/nextjs";
 import CardInfo from "./_components/CardInfo";
-import { db } from "@/utils/dbConfig";
-import { desc, eq, getTableColumns, sql } from "drizzle-orm";
-import { Budgets, Expenses, Incomes } from "@/utils/schema";
+import { supabase } from "@/utils/dbConfig";
+// import { desc, eq, getTableColumns, sql } from "drizzle-orm";
+// import { Budgets, Expenses, Incomes } from "@/utils/schema";
 import BarChartDashboard from "./_components/BarChartDashboard";
 import BudgetItem from "./budgets/_components/BudgetItem";
 import ExpenseListTable from "./expenses/_components/ExpenseListTable";
@@ -21,41 +21,69 @@ function Dashboard() {
    * used to get budget List
    */
   const getBudgetList = async () => {
-    const result = await db
-      .select({
-        ...getTableColumns(Budgets),
+  const email = user?.primaryEmailAddress?.emailAddress;
 
-        totalSpend: sql`sum(${Expenses.amount})`.mapWith(Number),
-        totalItem: sql`count(${Expenses.id})`.mapWith(Number),
+  try {
+    // Fetch budgets
+    const { data: budgetsData, error: budgetsError } = await supabase
+      .from('Budgets')
+      .select('*')
+      .eq('createdBy', email)
+      .order('id', { ascending: false });
+
+    if (budgetsError) throw budgetsError;
+
+    // Fetch expenses for each budget
+    const budgetsWithTotals = await Promise.all(
+      budgetsData.map(async (budget) => {
+        const { data: expensesData, error: expensesError } = await supabase
+          .from('Expenses')
+          .select('amount, id')
+          .eq('budgetId', budget.id);
+
+        if (expensesError) throw expensesError;
+
+        // Calculate totals
+        const totalSpend = expensesData.reduce((sum, expense) => sum + expense.amount, 0);
+        const totalItem = expensesData.length;
+
+        return {
+          ...budget,
+          totalSpend,
+          totalItem,
+        };
       })
-      .from(Budgets)
-      .leftJoin(Expenses, eq(Budgets.id, Expenses.budgetId))
-      .where(eq(Budgets.createdBy, user?.primaryEmailAddress?.emailAddress))
-      .groupBy(Budgets.id)
-      .orderBy(desc(Budgets.id));
-    setBudgetList(result);
+    );
+
+    setBudgetList(budgetsWithTotals);
     getAllExpenses();
     getIncomeList();
-  };
+  } catch (error) {
+    console.error('Error fetching budget list:', error);
+  }
+};
 
   /**
    * Get Income stream list
    */
   const getIncomeList = async () => {
     try {
-      const result = await db
-        .select({
-          ...getTableColumns(Incomes),
-          totalAmount: sql`SUM(CAST(${Incomes.amount} AS NUMERIC))`.mapWith(
-            Number
-          ),
-        })
-        .from(Incomes)
-        .groupBy(Incomes.id); // Assuming you want to group by ID or any other relevant column
+      const { data: incomesData, error: incomesError } = await supabase
+        .from('Incomes')
+        .select('*')
+        .order('id', { ascending: false });
 
-      setIncomeList(result);
+      if (incomesError) throw incomesError;
+
+      // Calculate total amount for each income
+      const incomesWithTotals = incomesData.map((income) => ({
+        ...income,
+        totalAmount: income.amount, // Assuming you want the amount itself
+      }));
+
+      setIncomeList(incomesWithTotals);
     } catch (error) {
-      console.error("Error fetching income list:", error);
+      console.error('Error fetching income list:', error);
     }
   };
 
@@ -63,19 +91,28 @@ function Dashboard() {
    * Used to get All expenses belong to users
    */
   const getAllExpenses = async () => {
-    const result = await db
-      .select({
-        id: Expenses.id,
-        name: Expenses.name,
-        amount: Expenses.amount,
-        createdAt: Expenses.createdAt,
-      })
-      .from(Budgets)
-      .rightJoin(Expenses, eq(Budgets.id, Expenses.budgetId))
-      .where(eq(Budgets.createdBy, user?.primaryEmailAddress.emailAddress))
-      .orderBy(desc(Expenses.id));
-    setExpensesList(result);
-  };
+  const email = user?.primaryEmailAddress?.emailAddress;
+
+  try {
+    // Fetch expenses with budget info
+    const { data: expensesData, error: expensesError } = await supabase
+      .from('Expenses')
+      .select('id, name, amount, createdAt, Budgets:budgetId (createdBy)')
+      .or(`Budgets.createdBy.eq.${email},Budgets.is.null`)
+      .order('id', { ascending: false });
+
+    if (expensesError) throw expensesError;
+
+    // Filter expenses created by the user
+    const userExpenses = expensesData.filter(
+      (expense) => expense.Budgets?.createdBy === email || !expense.Budgets
+    );
+
+    setExpensesList(userExpenses);
+  } catch (error) {
+    console.error('Error fetching expenses:', error);
+  }
+};
 
   return (
     <div className="p-8 bg-">

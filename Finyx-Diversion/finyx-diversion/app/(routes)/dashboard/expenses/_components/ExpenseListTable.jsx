@@ -1,22 +1,28 @@
-import { db } from "@/utils/dbConfig";
-import { Expenses } from "@/utils/schema";
-import { eq } from "drizzle-orm";
+import { supabase } from "@/utils/dbConfig";
+// import { Expenses } from "@/utils/schema";
+// import { eq } from "drizzle-orm";
 import { Trash } from "lucide-react";
 import React from "react";
 import { toast } from "sonner";
 
 function ExpenseListTable({ expensesList, refreshData }) {
   const deleteExpense = async (expense) => {
-    const result = await db
-      .delete(Expenses)
-      .where(eq(Expenses.id, expense.id))
-      .returning();
+    try {
+      const { error } = await supabase
+        .from('Expenses')
+        .delete()
+        .eq('id', expense.id);
 
-    if (result) {
-      toast("Expense Deleted!");
+      if (error) throw error;
+
+      toast.success('Expense Deleted!');
       refreshData();
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      toast.error('Failed to delete expense');
     }
   };
+
   return (
     <div className="mt-3">
       <h2 className="font-bold text-lg">Latest Expenses</h2>

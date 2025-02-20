@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { db } from "@/utils/dbConfig";
-import { Budgets, Expenses } from "@/utils/schema";
+import { supabase } from "@/utils/dbConfig";
+// import { Budgets, Expenses } from "@/utils/schema";
 import { Loader } from "lucide-react";
 import moment from "moment";
 import React, { useState } from "react";
@@ -14,27 +14,47 @@ function AddExpense({ budgetId, user, refreshData }) {
   /**
    * Used to Add New Expense
    */
-  const addNewExpense = async () => {
-    setLoading(true);
-    const result = await db
-      .insert(Expenses)
-      .values({
-        name: name,
-        amount: amount,
-        budgetId: budgetId,
-        createdAt: moment().format("DD/MM/yyy"),
-      })
-      .returning({ insertedId: Budgets.id });
+const addNewExpense = async () => {
+  setLoading(true);
 
-    setAmount("");
-    setName("");
-    if (result) {
-      setLoading(false);
-      refreshData();
-      toast("New Expense Added!");
+  try {
+    // Step 1: Validate that the budget exists
+    const { data: budget, error: budgetError } = await supabase
+      .from('Budgets')
+      .select('id')
+      .eq('id', budgetId)
+      .single();
+
+    if (budgetError || !budget) {
+      throw new Error('Invalid budget ID');
     }
+
+    // Step 2: Insert the new expense
+    const { data, error } = await supabase
+      .from('Expenses')
+      .insert({
+        name: name,
+        amount: Number(amount), // Ensure numeric type
+        budgetId: budgetId,
+        createdAt: new Date().toISOString(), // Use ISO format
+      })
+      .select('id') // Return the inserted ID
+      .single();
+
+    if (error) throw error;
+
+    // Step 3: Reset form and show success message
+    setAmount('');
+    setName('');
+    toast.success('New Expense Added!');
+    refreshData();
+  } catch (error) {
+    console.error('Error adding expense:', error);
+    toast.error('Failed to add expense');
+  } finally {
     setLoading(false);
-  };
+  }
+};
   return (
     <div className="border p-5 rounded-2xl">
       <h2 className="font-bold text-lg">Add Expense</h2>
@@ -64,5 +84,4 @@ function AddExpense({ budgetId, user, refreshData }) {
     </div>
   );
 }
-
 export default AddExpense;

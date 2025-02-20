@@ -13,8 +13,8 @@ import {
 import EmojiPicker from "emoji-picker-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { db } from "@/utils/dbConfig";
-import { Incomes } from "@/utils/schema";
+import { supabase } from "@/utils/dbConfig";
+// import { Incomes } from "@/utils/schema";
 import { useUser } from "@clerk/nextjs";
 import { toast } from "sonner";
 
@@ -31,21 +31,27 @@ function CreateIncomes({ refreshData }) {
    * Used to Create New Budget
    */
   const onCreateIncomes = async () => {
-    const result = await db
-      .insert(Incomes)
-      .values({
+  try {
+    const { data, error } = await supabase
+      .from('Incomes')
+      .insert({
         name: name,
-        amount: amount,
+        amount: Number(amount), // Ensure numeric type
         createdBy: user?.primaryEmailAddress?.emailAddress,
         icon: emojiIcon,
       })
-      .returning({ insertedId: Incomes.id });
+      .select('id') // Return the inserted ID
+      .single();
 
-    if (result) {
-      refreshData();
-      toast("New Income Source Created!");
-    }
-  };
+    if (error) throw error;
+
+    toast.success('New Income Source Created!');
+    refreshData();
+  } catch (error) {
+    console.error('Error creating income:', error);
+    toast.error('Failed to create income');
+  }
+};
   return (
     <div>
       <Dialog>

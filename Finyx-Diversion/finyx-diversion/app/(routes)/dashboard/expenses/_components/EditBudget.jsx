@@ -15,9 +15,9 @@ import {
 import EmojiPicker from "emoji-picker-react";
 import { useUser } from "@clerk/nextjs";
 import { Input } from "@/components/ui/input";
-import { db } from "@/utils/dbConfig";
-import { Budgets } from "@/utils/schema";
-import { eq } from "drizzle-orm";
+import { supabase } from "@/utils/dbConfig";
+// import { Budgets } from "@/utils/schema";
+// import { eq } from "drizzle-orm";
 import { toast } from "sonner";
 function EditBudget({ budgetInfo, refreshData }) {
   const [emojiIcon, setEmojiIcon] = useState(budgetInfo?.icon);
@@ -36,21 +36,27 @@ function EditBudget({ budgetInfo, refreshData }) {
     }
   }, [budgetInfo]);
   const onUpdateBudget = async () => {
-    const result = await db
-      .update(Budgets)
-      .set({
+  try {
+    const { data, error } = await supabase
+      .from('Budgets')
+      .update({
         name: name,
-        amount: amount,
+        amount: Number(amount), // Ensure numeric type
         icon: emojiIcon,
       })
-      .where(eq(Budgets.id, budgetInfo.id))
-      .returning();
+      .eq('id', budgetInfo.id)
+      .select() // Return the updated record
+      .single();
 
-    if (result) {
-      refreshData();
-      toast("Budget Updated!");
-    }
-  };
+    if (error) throw error;
+
+    toast.success('Budget Updated!');
+    refreshData();
+  } catch (error) {
+    console.error('Error updating budget:', error);
+    toast.error('Failed to update budget');
+  }
+};
   return (
     <div>
       <Dialog>

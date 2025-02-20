@@ -1,8 +1,8 @@
 "use client";
-import { db } from "@/utils/dbConfig";
-import { Budgets, Expenses } from "@/utils/schema";
+import { supabase } from "@/utils/dbConfig";
+// import { Budgets, Expenses } from "@/utils/schema";
 import { useUser } from "@clerk/nextjs";
-import { desc, eq, getTableColumns, sql } from "drizzle-orm";
+// import { desc, eq, getTableColumns, sql } from "drizzle-orm";
 import React, { useEffect, useState } from "react";
 import BudgetItem from "../../budgets/_components/BudgetItem";
 import AddExpense from "../_components/AddExpense";
@@ -36,20 +36,62 @@ function ExpensesScreen({ params }) {
   /**
    * Get Budget Information
    */
-  const getBudgetInfo = async () => {
-    const result = await db
-      .select({
-        ...getTableColumns(Budgets),
-        totalSpend: sql`sum(${Expenses.amount})`.mapWith(Number),
-        totalItem: sql`count(${Expenses.id})`.mapWith(Number),
-      })
-      .from(Budgets)
-      .leftJoin(Expenses, eq(Budgets.id, Expenses.budgetId))
-      .where(eq(Budgets.createdBy, user?.primaryEmailAddress?.emailAddress))
-      .where(eq(Budgets.id, params.id))
-      .groupBy(Budgets.id);
+  // const getBudgetInfo = async () => {
+  //   const result = await db
+  //     .select({
+  //       ...getTableColumns(Budgets),
+  //       totalSpend: sql`sum(${Expenses.amount})`.mapWith(Number),
+  //       totalItem: sql`count(${Expenses.id})`.mapWith(Number),
+  //     })
+  //     .from(Budgets)
+  //     .leftJoin(Expenses, eq(Budgets.id, Expenses.budgetId))
+  //     .where(eq(Budgets.createdBy, user?.primaryEmailAddress?.emailAddress))
+  //     .where(eq(Budgets.id, params.id))
+  //     .groupBy(Budgets.id);
 
-    setbudgetInfo(result[0]);
+  //   setbudgetInfo(result[0]);
+  //   getExpensesList();
+  // };
+
+  const getBudgetInfo = async () => {
+    const email = user?.primaryEmailAddress?.emailAddress;
+
+    // Fetch budget details
+    const { data: budgetData, error: budgetError } = await supabase
+      .from('Budgets')
+      .select('*')
+      .eq('createdBy', email)
+      .eq('id', params.id)
+      .single();
+
+    if (budgetError) {
+      console.error('Error fetching budget:', budgetError);
+      return;
+    }
+
+    // Fetch related expenses
+    const { data: expensesData, error: expensesError } = await supabase
+      .from('Expenses')
+      .select('amount, id')
+      .eq('budgetId', params.id);
+
+    if (expensesError) {
+      console.error('Error fetching expenses:', expensesError);
+      return;
+    }
+
+    // Calculate totals
+    const totalSpend = expensesData.reduce((sum, expense) => sum + expense.amount, 0);
+    const totalItem = expensesData.length;
+
+    // Combine results
+    const result = {
+      ...budgetData,
+      totalSpend,
+      totalItem,
+    };
+
+    setbudgetInfo(result);
     getExpensesList();
   };
 
@@ -57,33 +99,50 @@ function ExpensesScreen({ params }) {
    * Get Latest Expenses
    */
   const getExpensesList = async () => {
-    const result = await db
-      .select()
-      .from(Expenses)
-      .where(eq(Expenses.budgetId, params.id))
-      .orderBy(desc(Expenses.id));
-    setExpensesList(result);
-    console.log(result);
+    const { data, error } = await supabase
+      .from('Expenses')
+      .select('*')
+      .eq('budgetId', params.id)
+      .order('id', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching expenses:', error);
+      return;
+    }
+
+    setExpensesList(data);
+    console.log(data);
   };
 
   /**
    * Used to Delete budget
    */
   const deleteBudget = async () => {
-    const deleteExpenseResult = await db
-      .delete(Expenses)
-      .where(eq(Expenses.budgetId, params.id))
-      .returning();
+  // Delete associated expenses
+  const { error: deleteExpensesError } = await supabase
+    .from('Expenses')
+    .delete()
+    .eq('budgetId', params.id);
 
-    if (deleteExpenseResult) {
-      const result = await db
-        .delete(Budgets)
-        .where(eq(Budgets.id, params.id))
-        .returning();
+  if (deleteExpensesError) {
+    console.error('Error deleting expenses:', deleteExpensesError);
+    return;
+  }
+
+  // Delete the budget
+  const { error: deleteBudgetError } = await supabase
+    .from('Budgets')
+    .delete()
+    .eq('id', params.id);
+
+    if (deleteBudgetError) {
+      console.error('Error deleting budget:', deleteBudgetError);
+      return;
     }
-    toast("Budget Deleted !");
-    route.replace("/dashboard/budgets");
-  };
+
+  toast('Budget Deleted!');
+  route.replace('/dashboard/budgets');
+};
 
   return (
     <div className="p-10">
