@@ -7,7 +7,8 @@ import {
   ShieldCheck,
   CircleDollarSign,
   TrendingUp,
-  TrendingDownIcon,
+  BotMessageSquare ,
+  Swords
 } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
@@ -50,12 +51,24 @@ function SideNav() {
     //   icon: TrendingDownIcon,
     //   path: "/dashboard/debts",
     // },
+    // {
+    //   id: 4,
+    //   name: "Upgrade",
+    //   icon: ShieldCheck,
+    //   path: "/dashboard/upgrade",
+    // },
     {
       id: 4,
-      name: "Upgrade",
-      icon: ShieldCheck,
-      path: "/dashboard/upgrade",
+      name: "Finyx AI",
+      icon: BotMessageSquare ,
+      path: "/dashboard/finyxai",
     },
+    {
+      id: 5,
+      name: "Challenges",
+      icon: Swords,
+      path: "/dashboard/challenges",
+    }
   ];
   const path = usePathname();
 
@@ -70,7 +83,7 @@ function SideNav() {
         height={100}
         /> */}
       <div className="flex flex-row items-center">
-        <Image src={"logo.png"} alt="logo" width={40} height={25} />
+        <Image src={"/logo.png"} alt="logo" width={40} height={25} />
         <span className="text-emerald-800 font-bold text-xl">Finyx</span>
       </div>
       <div className="mt-5">
