@@ -10,6 +10,8 @@ import {
 import React, { useEffect, useState } from "react";
 
 function CardInfo({ budgetList, incomeList }) {
+  console.log(incomeList);
+  
   const [totalBudget, setTotalBudget] = useState(0);
   const [totalSpend, setTotalSpend] = useState(0);
   const [totalIncome, setTotalIncome] = useState(0);

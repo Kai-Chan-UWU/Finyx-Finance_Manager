@@ -1,8 +1,6 @@
 "use client";
 import { supabase } from "@/utils/dbConfig";
-// import { Budgets, Expenses } from "@/utils/schema";
 import { useUser } from "@clerk/nextjs";
-// import { desc, eq, getTableColumns, sql } from "drizzle-orm";
 import React, { useEffect, useState } from "react";
 import BudgetItem from "../../budgets/_components/BudgetItem";
 import AddExpense from "../_components/AddExpense";
@@ -36,22 +34,6 @@ function ExpensesScreen({ params }) {
   /**
    * Get Budget Information
    */
-  // const getBudgetInfo = async () => {
-  //   const result = await db
-  //     .select({
-  //       ...getTableColumns(Budgets),
-  //       totalSpend: sql`sum(${Expenses.amount})`.mapWith(Number),
-  //       totalItem: sql`count(${Expenses.id})`.mapWith(Number),
-  //     })
-  //     .from(Budgets)
-  //     .leftJoin(Expenses, eq(Budgets.id, Expenses.budgetId))
-  //     .where(eq(Budgets.createdBy, user?.primaryEmailAddress?.emailAddress))
-  //     .where(eq(Budgets.id, params.id))
-  //     .groupBy(Budgets.id);
-
-  //   setbudgetInfo(result[0]);
-  //   getExpensesList();
-  // };
 
   const getBudgetInfo = async () => {
     const email = user?.primaryEmailAddress?.emailAddress;
@@ -149,7 +131,7 @@ function ExpensesScreen({ params }) {
       <h2 className="text-2xl font-bold gap-2 flex justify-between items-center">
         <span className="flex gap-2 items-center">
           <ArrowLeft onClick={() => route.back()} className="cursor-pointer" />
-          My Expenses
+          My Budget
         </span>
         <div className="flex gap-2 items-center">
           <EditBudget
@@ -202,7 +184,7 @@ function ExpensesScreen({ params }) {
       </div>
       <div className="mt-4">
         <ExpenseListTable
-          expensesList={expensesList}
+          expenses={expensesList} 
           refreshData={() => getBudgetInfo()}
         />
       </div>
