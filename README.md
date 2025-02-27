@@ -1,8 +1,5 @@
 <div align="center">
   <br />
-    <a href="https://youtu.be/dGHFV_RMGag" target="_blank">
-      <img src="https://i.postimg.cc/tJsYLQcP/test1.jpg" alt="Project Banner">
-    </a>
   
   <br />
 
